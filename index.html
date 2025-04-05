@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbox Hỏi Đáp</title>
+    <style>
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f5f5f5;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    flex-direction: column;
+}
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 800px;
+            padding: 10px;
+        }
+        .new-chat {
+            background: #28a745;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            border: none;
+        }
+        .chat-container {
+            width: 800px;
+            height: 600px;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    }
+
+        .chat-box {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            padding: 10px;
+            overflow-y: auto;
+        }
+        .message {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 10px;
+            max-width: 75%;
+        }
+
+
+
+        .user-message {
+            background: #e1f5fe;
+            align-self: flex-end; /* Căn khối tin nhắn sát bên phải */
+            /* text-align: right; */
+            margin-left: 0;
+            margin-right: 10px; /* Khoảng cách từ lề phải của chat-box */
+            max-width: 80%; /* Giới hạn chiều rộng tối đa của tin nhắn */
+            word-wrap: break-word; /* Đảm bảo văn bản sẽ xuống dòng khi quá dài */
+            padding: 10px; /* Thêm padding cho tin nhắn */
+            display: inline-block; /* Đảm bảo chiều rộng của tin nhắn chỉ đủ nội dung */
+        }
+        .bot-message {
+            background: #ffffff;
+            border: 1px solid #ddd;
+            align-self: flex-start;
+            text-align: left;
+        }
+        .input-box {
+            display: flex;
+            padding: 10px;
+            border-top: 1px solid #ddd;
+        }
+        .input-box input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            resize: none;
+            overflow-y: auto;
+        }
+        .input-box button {
+            margin-left: 10px;
+            padding: 10px;
+            background: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="https://www.uit.edu.vn/sites/vi/files/banner_uit.png" alt="Logo" width="100">
+        <button class="new-chat">New Chat</button>
+    </div>
+    <div class="chat-container">
+        <div class="chat-box" id="chat-box"></div>
+        <div class="input-box">
+            <input type="text" id="user-input" placeholder="Nhập tin nhắn..." onkeypress="handleKeyPress(event)">
+            <button onclick="sendMessage()">Gửi</button>
+        </div>
+    </div>
+
+    <script>
+        function sendMessage() {
+            const inputField = document.getElementById("user-input");
+            const message = inputField.value.trim();
+            if (message === "") return;
+            
+            addMessage(message, "user-message");
+            inputField.value = "";
+            
+            fetch("http://localhost:6868/add", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify([{ "role": "user", "content": [{ "type": "text", "text": message }] }])
+            })
+            .then(response => response.json())
+            .then(data => {
+                const botReply = data.content[0].text;
+                addMessage(botReply, "bot-message");
+            })
+            .catch(error => console.error("Error:", error));
+        }
+        function addMessage(text, className) {
+            const chatBox = document.getElementById("chat-box");
+            const messageDiv = document.createElement("div");
+            messageDiv.classList.add("message", className);
+
+            // Xử lý link: tự động chuyển URL thành thẻ <a>
+            text = text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
+
+            // Xử lý in đậm: **text** → <b>text</b>
+            text = text.replace(/\*\*(.*?)\*\*/g, "<b>$1</b>");
+
+            // Xử lý in nghiêng: *text* → <i>text</i>
+            text = text.replace(/\*(.*?)\*/g, "<i>$1</i>");
+
+            text = text.replace(/"([^"]*)"/g, '<b>"$1"</b>');
+
+            // Giữ nguyên dòng: chuyển đổi \n thành <br>
+            messageDiv.innerHTML = text.replace(/\n/g, "<br>");
+
+            // Thêm vào chat box và tự động cuộn xuống cuối
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+
+        function handleKeyPress(event) {
+            if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+        document.querySelector(".new-chat").addEventListener("click", () => {
+            const chatBox = document.getElementById("chat-box");
+            chatBox.innerHTML = "";  // Xóa toàn bộ nội dung chat
+
+            addMessage("Xin chào! Bạn muốn hỏi về điều gì?", "bot-message");
+
+            fetch("http://localhost:6868/reset", {
+                method: "POST"
+            }).catch(error => console.error("Lỗi khi reset:", error));
+        });
+
+        window.onload = () => {
+        addMessage("Xin chào! Bạn muốn hỏi về điều gì?", "bot-message");
+        };
+
+    </script>
+</body>
+</html>
